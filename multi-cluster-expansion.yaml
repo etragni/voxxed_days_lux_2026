@@ -1,0 +1,104 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-prod-eu
+  namespace: argocd
+  annotations:
+    kargo.akuity.io/authorized-stage: "kargo-demo:prod-eu"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/etragni/voxxed_days_lux_2026
+    path: manifests/prod
+    targetRevision: main
+  destination:
+    name: kargo-eu    # Remote kind cluster
+    namespace: demo-prod
+  syncPolicy:
+    automated:
+      prune: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-prod-us
+  namespace: argocd
+  annotations:
+    kargo.akuity.io/authorized-stage: "kargo-demo:prod-us"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/etragni/voxxed_days_lux_2026
+    path: manifests/prod
+    targetRevision: main
+  destination:
+    name: kargo-us    # Remote kind cluster
+    namespace: demo-prod
+  syncPolicy:
+    automated:
+      prune: true
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: prod-eu
+  namespace: kargo-demo
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: demo-warehouse
+      sources:
+        stages:
+          - prod
+  promotionTemplate:
+    spec:
+      steps:
+        - uses: argocd-update
+          config:
+            apps:
+              - name: demo-prod-eu
+                namespace: argocd
+                sources:
+                  - repoURL: https://github.com/etragni/voxxed_days_lux_2026
+                    kustomize:
+                      images:
+                        - repoURL: ghcr.io/etragni/kargo-demo-app
+        - uses: argocd-wait
+          config:
+            apps:
+              - name: demo-prod-eu
+                namespace: argocd
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: prod-us
+  namespace: kargo-demo
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: demo-warehouse
+      sources:
+        stages:
+          - prod
+  promotionTemplate:
+    spec:
+      steps:
+        - uses: argocd-update
+          config:
+            apps:
+              - name: demo-prod-us
+                namespace: argocd
+                sources:
+                  - repoURL: https://github.com/etragni/voxxed_days_lux_2026
+                    kustomize:
+                      images:
+                        - repoURL: ghcr.io/etragni/kargo-demo-app
+        - uses: argocd-wait
+          config:
+            apps:
+              - name: demo-prod-us
+                namespace: argocd
