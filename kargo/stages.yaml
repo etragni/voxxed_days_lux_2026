@@ -1,0 +1,134 @@
+# ── dev ────────────────────────────────────────────────────────────────────────
+# Dev gets every new Freight automatically — fast feedback, no ceremony.
+# One smoke test confirms the app is alive before Freight can advance.
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: dev
+  namespace: kargo-demo
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: demo-warehouse
+      sources:
+        direct: true   # pulls straight from Warehouse — no upstream stage gate
+  promotionTemplate:
+    spec:
+      steps:
+        - uses: argocd-update
+          config:
+            apps:
+              - name: demo-dev
+                namespace: argocd
+                sources:
+                  - repoURL: https://github.com/etragni/voxxed_days_lux_2026
+                    kustomize:
+                      images:
+                        - repoURL: ghcr.io/etragni/kargo-demo-app
+
+        - uses: argocd-wait
+          config:
+            apps:
+              - name: demo-dev
+                namespace: argocd
+
+        # Smoke test: app must respond 200 on /health
+        - uses: http
+          as: smoke-test
+          config:
+            url: http://dev-demo-app.demo-dev.svc.cluster.local/health
+            successExpression: "response.status == 200 && response.body contains 'ok'"
+---
+# ── staging ──────────────────────────────────────────────────────────────────
+# Staging only receives Freight that already passed dev.
+# Two checks run in sequence:
+#   1. health gate  — must return 200
+#   2. body check   — response must contain "Hello" (catches broken responses)
+# If either fails, promotion is blocked and prod never sees this Freight.
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: staging
+  namespace: kargo-demo
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: demo-warehouse
+      sources:
+        stages: [dev]   # only Freight that passed dev is eligible here
+  promotionTemplate:
+    spec:
+      steps:
+        - uses: argocd-update
+          config:
+            apps:
+              - name: demo-staging
+                namespace: argocd
+                sources:
+                  - repoURL: https://github.com/etragni/voxxed_days_lux_2026
+                    kustomize:
+                      images:
+                        - repoURL: ghcr.io/etragni/kargo-demo-app
+
+        - uses: argocd-wait
+          config:
+            apps:
+              - name: demo-staging
+                namespace: argocd
+
+        # Gate 1 — health check (catches crashes and 5xx regressions)
+        - uses: http
+          as: health-check
+          config:
+            url: http://staging-demo-app.demo-staging.svc.cluster.local/health
+            successExpression: "response.status == 200 && response.body contains 'ok'"
+        
+        # staging integration-test
+        - uses: http
+          as: integration-test
+          config:
+            url: http://staging-demo-app.demo-staging.svc.cluster.local/
+            successExpression: "response.status == 200 && response.body contains 'Hello'"
+---
+# ── prod ──────────────────────────────────────────────────────────────────────
+# Prod only receives Freight that cleared staging.
+# Auto-promotion is OFF — a human must explicitly approve.
+# After deploy, an AnalysisRun runs 3 health probes as a post-deploy gate.
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: prod
+  namespace: kargo-demo
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: demo-warehouse
+      sources:
+        stages: [staging]   # only Freight that passed staging is eligible here
+  promotionTemplate:
+    spec:
+      steps:
+        - uses: argocd-update
+          config:
+            apps:
+              - name: demo-prod
+                namespace: argocd
+                sources:
+                  - repoURL: https://github.com/etragni/voxxed_days_lux_2026
+                    kustomize:
+                      images:
+                        - repoURL: ghcr.io/etragni/kargo-demo-app
+
+        - uses: argocd-wait
+          config:
+            apps:
+              - name: demo-prod
+                namespace: argocd
+
+  # Post-deploy verification via Argo Rollouts AnalysisTemplate
+  verification:
+    analysisTemplates:
+      - name: demo-smoke

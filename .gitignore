@@ -1,0 +1,48 @@
+# ==========================================
+# macOS System Files
+# ==========================================
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two carriage returns
+Icon?
+
+# Thumbnails
+._*
+
+# Files that might be created on a Mac check share or removable drive
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on external directories
+.cm/
+.xdg/
+
+# ==========================================
+# Common Editor & IDE Files (Optional but recommended)
+# ==========================================
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+.DS_Store?
+
+# ==========================================
+# Generic Logs and Runtime Files
+# ==========================================
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+.env.local

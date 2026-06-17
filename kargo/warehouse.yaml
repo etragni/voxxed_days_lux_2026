@@ -1,0 +1,11 @@
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: demo-warehouse
+  namespace: kargo-demo
+spec:
+  subscriptions:
+    - image:
+        repoURL: ghcr.io/etragni/kargo-demo-app
+        imageSelectionStrategy: Digest
+        constraint: latest

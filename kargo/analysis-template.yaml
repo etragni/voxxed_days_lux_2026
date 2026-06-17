@@ -1,0 +1,15 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: demo-smoke
+  namespace: kargo-demo
+spec:
+  metrics:
+    - name: health-check
+      provider:
+        web:
+          url: http://prod-demo-app.demo-prod.svc.cluster.local/health
+      successCondition: "result == 'ok'"
+      interval: 10s
+      count: 3
+      failureLimit: 1
